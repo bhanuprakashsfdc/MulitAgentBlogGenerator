@@ -80,10 +80,16 @@ cp .env.example .env
 # OPENROUTER_API_KEY=sk-or-...
 # (Get your key from https://openrouter.ai/settings)
 
-# 5. Optionally customize models
-# Default models are set in .env, but you can override:
-# MODEL_QUALITY=claude-sonnet-4-5
-# MODEL_CHEAP=claude-haiku-4-5-20251001
+# 5. Configure required environment variables
+# Required:
+# - OPENROUTER_API_KEY
+# - MODEL_QUALITY (e.g., nvidia/nemotron-3-super-120b-a12b:free)
+# - MODEL_CHEAP (e.g., nvidia/nemotron-3-super-120b-a12b:free)
+# - AUTHOR_NAME
+# - AUTHOR_TITLE
+# - AUTHOR_LINKEDIN
+# - AUTHOR_SITE
+# - BLOG_NICHE
 ```
 
 ---

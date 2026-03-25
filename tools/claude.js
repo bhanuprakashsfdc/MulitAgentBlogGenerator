@@ -8,15 +8,15 @@ const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions';
 
 export async function callClaude({ system, user, maxTokens = 4096, tier = 'quality' }) {
   const model = tier === 'cheap'
-    ? (process.env.MODEL_CHEAP   || 'anthropic/claude-haiku-4-5-20251001')
-    : (process.env.MODEL_QUALITY || 'anthropic/claude-sonnet-4-5');
+    ? process.env.MODEL_CHEAP
+    : process.env.MODEL_QUALITY;
 
   const res = await fetch(OPENROUTER_BASE, {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
       'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      'HTTP-Referer':  process.env.AUTHOR_SITE || 'https://bhanuprakashsfdc.com',
+      'HTTP-Referer':  process.env.AUTHOR_SITE,
       'X-Title':       'SFDC Blog Engine',
     },
     body: JSON.stringify({
