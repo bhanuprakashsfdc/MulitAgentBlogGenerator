@@ -1,20 +1,20 @@
 export const config = {
   author: {
-    name:           process.env.AUTHOR_NAME     || 'Bhanu Prakash Kollireddy',
-    title:          process.env.AUTHOR_TITLE    || 'Senior Salesforce Architect & Agentforce Specialist',
-    linkedin:       process.env.AUTHOR_LINKEDIN || 'https://www.linkedin.com/in/bhanuprakashsfdc',
-    site:           process.env.AUTHOR_SITE     || 'https://bhanuprakashsfdc.com',
-    niche:          process.env.BLOG_NICHE      || 'Salesforce Architecture, Agentforce, FSC, Platform Development',
-    experience:     '10+ years',
-    certifications: '16 Salesforce certifications including Application Architect, Platform Developer II, AI Specialist',
+    name:           process.env.AUTHOR_NAME,
+    title:          process.env.AUTHOR_TITLE,
+    linkedin:       process.env.AUTHOR_LINKEDIN,
+    site:           process.env.AUTHOR_SITE,
+    niche:          process.env.BLOG_NICHE,
+    experience:     process.env.AUTHOR_EXPERIENCE,
+    certifications: process.env.AUTHOR_CERTIFICATIONS,
   },
 
   // ── Model tiers ────────────────────────────────────────────────────────────
   // cheap   → SEO agent, Outline agent   (fast JSON tasks, ~70% cost saving)
   // quality → Writer agent, Editor agent (content quality matters here)
   models: {
-    quality: process.env.MODEL_QUALITY || 'anthropic/claude-sonnet-4-5',
-    cheap:   process.env.MODEL_CHEAP   || 'anthropic/claude-haiku-4-5-20251001',
+    quality: process.env.MODEL_QUALITY,
+    cheap:   process.env.MODEL_CHEAP,
   },
 
   // ── Pre-seeded Salesforce topic queue ─────────────────────────────────────
