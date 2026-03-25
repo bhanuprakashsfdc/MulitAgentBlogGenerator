@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFDC Blog Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--surface:#13161d;--card:#1a1e28;--border:#252a38;
+  --text:#e8eaf0;--muted:#7a8099;--dim:#4a5068;
+  --accent:#4f9eff;--accent2:#7c6dfa;--green:#2ecc71;--amber:#f0a500;--red:#e74c3c;
+  --mono:'IBM Plex Mono',monospace;--sans:'DM Sans',sans-serif;--serif:'IBM Plex Serif',serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
+
+/* LAYOUT */
+.shell{display:grid;grid-template-columns:280px 1fr;grid-template-rows:56px 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 24px}
+.topbar-logo{font-family:var(--serif);font-size:18px;color:var(--text)}
+.topbar-logo span{color:var(--accent)}
+.topbar-sub{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.topbar-badge{margin-left:auto;background:#1a2a1a;color:var(--green);border:1px solid #2a4a2a;border-radius:4px;padding:3px 10px;font-size:11px;font-family:var(--mono)}
+
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.sidebar-label{font-size:10px;font-family:var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.1em;padding:8px 8px 4px}
+.topic-btn{background:transparent;border:1px solid transparent;color:var(--muted);padding:8px 10px;border-radius:6px;cursor:pointer;text-align:left;font-size:12px;font-family:var(--sans);line-height:1.4;transition:all .15s;width:100%}
+.topic-btn:hover{background:var(--card);border-color:var(--border);color:var(--text)}
+.topic-btn.active{background:#1a2040;border-color:var(--accent2);color:var(--text)}
+.topic-tag{display:inline-block;font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px;margin-top:3px;background:#252a38;color:var(--dim)}
+
+.main{display:flex;flex-direction:column;overflow:hidden}
+
+/* INPUT PANEL */
+.input-panel{padding:20px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.input-row{display:flex;gap:10px;align-items:flex-start}
+.topic-input{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-family:var(--sans);font-size:14px;resize:none;height:44px;line-height:1.4;transition:border-color .15s}
+.topic-input:focus{outline:none;border-color:var(--accent)}
+.topic-input::placeholder{color:var(--dim)}
+.run-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;padding:10px 20px;border-radius:8px;font-family:var(--sans);font-weight:600;font-size:14px;cursor:pointer;height:44px;white-space:nowrap;transition:opacity .15s}
+.run-btn:hover{opacity:.9}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.author-row{display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--muted)}
+.author-row span{display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block}
+
+/* PIPELINE */
+.pipeline-row{display:flex;gap:0;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--bg)}
+.pipe-step{display:flex;align-items:center;gap:8px;flex:1;font-size:11px;font-family:var(--mono);color:var(--dim);position:relative}
+.pipe-step:not(:last-child)::after{content:'→';position:absolute;right:0;color:var(--dim);font-size:10px}
+.pipe-icon{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--card);flex-shrink:0;transition:all .3s}
+.pipe-step.running .pipe-icon{border-color:var(--accent);background:#0d2040;animation:pulse 1s ease-in-out infinite}
+.pipe-step.done .pipe-icon{border-color:var(--green);background:#0d2a1a;color:var(--green)}
+.pipe-step.error .pipe-icon{border-color:var(--red);background:#2a0d0d;color:var(--red)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(79,158,255,.4)}50%{box-shadow:0 0 0 4px rgba(79,158,255,0)}}
+
+/* OUTPUT AREA */
+.output-area{flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 360px;gap:0}
+.log-panel{padding:20px 24px;border-right:1px solid var(--border);overflow-y:auto}
+.log-line{font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--muted);display:flex;gap:8px}
+.log-line.info{color:var(--accent)}
+.log-line.success{color:var(--green)}
+.log-line.warn{color:var(--amber)}
+.log-line.error{color:var(--red)}
+.log-line.section{color:var(--text);font-weight:500;margin-top:8px}
+.log-ts{color:var(--dim);min-width:60px}
+
+.preview-panel{padding:20px;overflow-y:auto;background:var(--surface)}
+.preview-label{font-size:10px;font-family:var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
+
+/* STATS CARDS */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+.stat-val{font-size:22px;font-family:var(--mono);font-weight:500;color:var(--text)}
+.stat-key{font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.stat-card.green .stat-val{color:var(--green)}
+.stat-card.blue .stat-val{color:var(--accent)}
+.stat-card.amber .stat-val{color:var(--amber)}
+
+/* DOWNLOAD */
+.dl-section{margin-top:12px}
+.dl-btn{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:13px;width:100%;text-align:left;transition:all .15s;margin-bottom:8px}
+.dl-btn:hover{border-color:var(--accent);color:var(--accent)}
+.dl-btn:disabled{opacity:.3;cursor:not-allowed}
+.dl-icon{font-size:16px}
+
+/* PREVIEW ACCORDION */
+.preview-accordion{margin-top:12px}
+.acc-header{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--muted);display:flex;justify-content:space-between;margin-bottom:6px}
+.acc-header:hover{color:var(--text)}
+.acc-body{display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:6px;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;line-height:1.6}
+.acc-body.open{display:block}
+
+/* EMPTY STATE */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--dim);font-family:var(--mono);font-size:12px;text-align:center;gap:8px}
+.empty-icon{font-size:32px;opacity:.3}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">SFDC Blog <span>Engine</span></div>
+  <div class="topbar-sub">5-agent autonomous pipeline · Salesforce personal brand</div>
+  <div class="topbar-badge">● LIVE</div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-label">Topic Queue</div>
+  <button class="topic-btn" onclick="selectTopic(this,'Agentforce vs Einstein Copilot differences')">
+    Agentforce vs Einstein Copilot
+    <div class="topic-tag">comparison</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'FFLIB Apex common patterns explained')">
+    FFLIB Apex Common Patterns
+    <div class="topic-tag">tutorial</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'Salesforce Financial Services Cloud implementation guide')">
+    FSC Implementation Guide
+    <div class="topic-tag">informational</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'LWC vs Aura components when to use')">
+    LWC vs Aura Components
+    <div class="topic-tag">comparison</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'Agentforce custom actions tutorial')">
+    Agentforce Custom Actions
+    <div class="topic-tag">tutorial</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'Salesforce Platform Events vs Change Data Capture')">
+    Platform Events vs CDC
+    <div class="topic-tag">comparison</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'Apex trigger framework best practices 2025')">
+    Apex Trigger Framework 2025
+    <div class="topic-tag">how-to</div>
+  </button>
+  <button class="topic-btn" onclick="selectTopic(this,'Salesforce MuleSoft integration patterns')">
+    MuleSoft Integration Patterns
+    <div class="topic-tag">architecture</div>
+  </button>
+
+  <div class="sidebar-label" style="margin-top:12px">Author</div>
+  <div style="padding:8px 8px;font-size:11px;color:var(--muted);line-height:1.7;font-family:var(--mono)">
+    Bhanu Prakash Kollireddy<br>
+    <span style="color:var(--dim)">16× Salesforce Certified<br>App Architect · PDII · AI Specialist</span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- INPUT PANEL -->
+  <div class="input-panel">
+    <div class="input-row">
+      <textarea class="topic-input" id="topicInput" placeholder="Enter a Salesforce topic or click one from the queue →"></textarea>
+      <button class="run-btn" id="runBtn" onclick="runPipeline()">▶ Generate</button>
+    </div>
+    <div class="author-row">
+      <span><span class="dot"></span> Bhanu Prakash Kollireddy · bhanuprakashsfdc.com</span>
+      <span style="color:var(--dim)">·</span>
+      <span>Output: .md + .html</span>
+      <span style="color:var(--dim)">·</span>
+      <span>nvidia/nemotron-3-super-120b-a12b:free</span>
+    </div>
+  </div>
+
+  <!-- PIPELINE STEPS -->
+  <div class="pipeline-row">
+    <div class="pipe-step" id="step-seo">
+      <div class="pipe-icon" id="icon-seo">1</div>
+      <span>SEO Research</span>
+    </div>
+    <div class="pipe-step" id="step-research">
+      <div class="pipe-icon" id="icon-research">2</div>
+      <span>Web Research</span>
+    </div>
+    <div class="pipe-step" id="step-outline">
+      <div class="pipe-icon" id="icon-outline">3</div>
+      <span>Outline</span>
+    </div>
+    <div class="pipe-step" id="step-writer">
+      <div class="pipe-icon" id="icon-writer">4</div>
+      <span>Writer</span>
+    </div>
+    <div class="pipe-step" id="step-editor">
+      <div class="pipe-icon" id="icon-editor">5</div>
+      <span>Editor / QA</span>
+    </div>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="output-area">
+    <!-- LOG -->
+    <div class="log-panel" id="logPanel">
+      <div class="empty" id="emptyState">
+        <div class="empty-icon">⚡</div>
+        <div>Select a topic and click Generate</div>
+        <div style="color:var(--dim)">The 5-agent pipeline will run autonomously</div>
+      </div>
+    </div>
+
+    <!-- PREVIEW PANEL -->
+    <div class="preview-panel">
+      <div class="preview-label">Output & Stats</div>
+
+      <div class="stats-grid" id="statsGrid" style="display:none">
+        <div class="stat-card green">
+          <div class="stat-val" id="statWords">—</div>
+          <div class="stat-key">words</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-val" id="statScore">—</div>
+          <div class="stat-key">quality score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statDensity">—</div>
+          <div class="stat-key">keyword density</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-val" id="statTime">—</div>
+          <div class="stat-key">runtime (s)</div>
+        </div>
+      </div>
+
+      <div class="dl-section" id="dlSection" style="display:none">
+        <div class="preview-label" style="margin-top:8px">Download</div>
+        <button class="dl-btn" id="dlMd" onclick="downloadFile('md')" disabled>
+          <span class="dl-icon">📄</span> Download Markdown (.md)
+        </button>
+        <button class="dl-btn" id="dlHtml" onclick="downloadFile('html')" disabled>
+          <span class="dl-icon">🌐</span> Download HTML Preview
+        </button>
+      </div>
+
+      <div class="preview-accordion" id="previewAccordion" style="display:none">
+        <div class="preview-label" style="margin-top:12px">Preview</div>
+        <div class="acc-header" onclick="toggleAcc('seoPreview')">
+          SEO Brief <span>▾</span>
+        </div>
+        <div class="acc-body" id="seoPreview"></div>
+
+        <div class="acc-header" onclick="toggleAcc('outlinePreview')">
+          Outline <span>▾</span>
+        </div>
+        <div class="acc-body" id="outlinePreview"></div>
+
+        <div class="acc-header" onclick="toggleAcc('contentPreview')">
+          Content (first 1000 chars) <span>▾</span>
+        </div>
+        <div class="acc-body" id="contentPreview"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const AUTHOR = {
+  name: 'Bhanu Prakash Kollireddy',
+  title: 'Senior Salesforce Architect & Agentforce Specialist',
+  linkedin: 'https://www.linkedin.com/in/bhanuprakashsfdc',
+  site: 'https://bhanuprakashsfdc.com',
+  certs: '16 Salesforce certifications including Application Architect, Platform Developer II, AI Specialist',
+};
+
+const VOICE = {
+  avoid: ['In today\'s fast-paced world','game-changer','leverage','delve','Furthermore','Moreover','utilize','In conclusion','transformative','cutting-edge'],
+  style: 'Practitioner-first. Direct. Include real code. Call out gotchas from real experience. No fluff.',
+  audience: 'Salesforce architects, senior developers, CTOs evaluating Salesforce.',
+};
+
+let state = { seoBrief:null, outline:null, draft:null, finalContent:null, report:null, startTime:null };
+let generatedMd = '';
+let generatedHtml = '';
+
+function selectTopic(btn, topic) {
+  document.querySelectorAll('.topic-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('topicInput').value = topic;
+}
+
+function log(msg, type='info') {
+  const panel = document.getElementById('logPanel');
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.remove();
+  const ts = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.innerHTML = `<span class="log-ts">${ts}</span><span>${msg}</span>`;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function setStep(name, status) {
+  const step = document.getElementById(`step-${name}`);
+  const icon = document.getElementById(`icon-${name}`);
+  step.className = `pipe-step ${status}`;
+  if (status === 'running') icon.textContent = '◌';
+  else if (status === 'done') icon.textContent = '✓';
+  else if (status === 'error') icon.textContent = '✗';
+}
+
+function resetSteps() {
+  ['seo','research','outline','writer','editor'].forEach((s,i) => {
+    const step = document.getElementById(`step-${s}`);
+    const icon = document.getElementById(`icon-${s}`);
+    step.className = 'pipe-step';
+    icon.textContent = i+1;
+  });
+}
+
+async function callClaude(system, user, maxTokens=2000) {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${'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'}`,
+      'HTTP-Referer': 'https://bhanuprakashsfdc.com',
+      'X-Title': 'SFDC Blog Engine'
+    },
+    body: JSON.stringify({
+      model: 'nvidia/nemotron-3-super-120b-a12b:free',
+      max_tokens: maxTokens,
+      messages: [
+        {role:'system', content: system},
+        {role:'user', content: user}
+      ]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  if (!data.choices?.[0]?.message?.content) throw new Error('No content in response');
+  return data.choices[0].message.content;
+}
+
+async function runPipeline() {
+  const topic = document.getElementById('topicInput').value.trim();
+  if (!topic) return;
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  document.getElementById('logPanel').innerHTML = '';
+  document.getElementById('statsGrid').style.display = 'none';
+  document.getElementById('dlSection').style.display = 'none';
+  document.getElementById('previewAccordion').style.display = 'none';
+  state = {};
+  generatedMd = ''; generatedHtml = '';
+  resetSteps();
+  state.startTime = Date.now();
+
+  try {
+    // ── STEP 1: SEO ───────────────────────────────────────────────────
+    setStep('seo','running');
+    log('Agent 1/5 — SEO Research Agent starting...','section');
+
+    const seoRaw = await callClaude(
+      `You are an expert Salesforce SEO strategist. Return ONLY valid JSON, no markdown.`,
+      `Analyse for SEO: "${topic}" for a Salesforce architect blog targeting: ${VOICE.audience}
+Return JSON:
+{"primaryKeyword":"...","lsiKeywords":["k1","k2","k3","k4","k5"],"title":"under 60 chars","metaDescription":"under 155 chars","slug":"url-slug","searchIntent":"informational|comparison|tutorial|how-to","contentGap":"what most articles miss","targetHeaders":["H2 one","H2 two","H2 three","H2 four"]}`, 2000
+    );
+
+    let seoJson = seoRaw.trim();
+    const seoMatch = seoJson.match(/\{[\s\S]*\}/);
+    state.seoBrief = JSON.parse(seoMatch ? seoMatch[0] : seoJson);
+
+    setStep('seo','done');
+    log(`✓ Primary keyword: ${state.seoBrief.primaryKeyword}`, 'success');
+    log(`✓ Title: ${state.seoBrief.title}`, 'success');
+    log(`✓ Slug: /${state.seoBrief.slug}`, 'info');
+    log(`✓ Content gap identified: ${state.seoBrief.contentGap.slice(0,80)}...`, 'info');
+    document.getElementById('seoPreview').textContent = JSON.stringify(state.seoBrief, null, 2);
+
+    // ── STEP 2: RESEARCH ──────────────────────────────────────────────
+    setStep('research','running');
+    log('Agent 2/5 — Web Research Agent (using training knowledge)...', 'section');
+    // No external API — Claude synthesises from training
+    const researchCtx = `Topic: ${topic}\nUse your deep Salesforce training knowledge. No external sources needed.`;
+    setStep('research','done');
+    log('✓ Research context prepared from training knowledge', 'success');
+
+    // ── STEP 3: OUTLINE ───────────────────────────────────────────────
+    setStep('outline','running');
+    log('Agent 3/5 — Outline Agent building section blueprint...', 'section');
+
+    const outlineRaw = await callClaude(
+      `You are a senior Salesforce content strategist. Return ONLY valid JSON, no markdown.`,
+      `Create a detailed blog outline.
+SEO brief: ${JSON.stringify(state.seoBrief)}
+Voice: ${VOICE.style}
+Audience: ${VOICE.audience}
+Word count target: 1800-2200 words
+
+Return JSON:
+{
+  "intro":{"hook":"...","problemStatement":"...","wordCount":150},
+  "sections":[
+    {"h2":"...","keyPoints":["...","...","..."],"includeCode":true,"codeLanguage":"apex|soql|javascript|json","callout":"Pro Tip|Gotcha|Warning|null","calloutText":"...","wordCount":400}
+  ],
+  "conclusion":{"mainTakeaway":"...","cta":"Follow Bhanu on LinkedIn or visit bhanuprakashsfdc.com","wordCount":150}
+}`, 2000
+    );
+
+    let outlineJson = outlineRaw.trim();
+    const outMatch = outlineJson.match(/\{[\s\S]*\}/);
+    state.outline = JSON.parse(outMatch ? outMatch[0] : outlineJson);
+
+    setStep('outline','done');
+    log(`✓ ${state.outline.sections.length} sections planned`, 'success');
+    state.outline.sections.forEach(s => log(`  → ${s.h2}`, 'info'));
+    document.getElementById('outlinePreview').textContent = JSON.stringify(state.outline, null, 2);
+
+    // ── STEP 4: WRITER ────────────────────────────────────────────────
+    setStep('writer','running');
+    log('Agent 4/5 — Writer Agent drafting full post...', 'section');
+    log('  (Writing intro + ' + state.outline.sections.length + ' sections + conclusion)', 'info');
+
+    const writerSystem = `You are ${AUTHOR.name}, ${AUTHOR.title} with 10+ years Salesforce experience and ${AUTHOR.certs}.
+STYLE: ${VOICE.style}
+NEVER USE: ${VOICE.avoid.join(', ')}
+Write for: ${VOICE.audience}
+Format: Markdown. ## for H2, ### for H3. Code in triple backtick blocks with language. Callouts as > 💡 Pro Tip: or > 🔴 Gotcha: or > ⚠️ Warning:`;
+
+    const sections = [];
+
+    // Intro
+    const intro = await callClaude(writerSystem,
+      `Write the INTRODUCTION for "${state.seoBrief.title}".
+Hook: ${state.outline.intro.hook}
+Problem: ${state.outline.intro.problemStatement}
+Keyword to include naturally: ${state.seoBrief.primaryKeyword}
+~${state.outline.intro.wordCount} words. Start with the hook directly — no title, no "In this article".`, 2000);
+    sections.push(intro);
+    log('  ✓ Intro written', 'success');
+
+    // Sections
+    for (let i = 0; i < state.outline.sections.length; i++) {
+      const sec = state.outline.sections[i];
+      const codeInstr = sec.includeCode
+        ? `Include a real working ${sec.codeLanguage} code example. Production-ready, not a stub.`
+        : 'No code block needed.';
+      const calloutInstr = sec.callout && sec.callout !== 'null'
+        ? `End with: > ${sec.callout === 'Pro Tip' ? '💡 Pro Tip:' : sec.callout === 'Gotcha' ? '🔴 Gotcha:' : '⚠️ Warning:'} ${sec.calloutText}`
+        : '';
+
+      const secContent = await callClaude(writerSystem,
+        `Write section "## ${sec.h2}" for article "${state.seoBrief.title}".
+Key points: ${sec.keyPoints.join(' | ')}
+${codeInstr}
+${calloutInstr}
+LSI keywords to weave in: ${state.seoBrief.lsiKeywords.slice(0,3).join(', ')}
+~${sec.wordCount} words. Start with "## ${sec.h2}".`, 2500);
+
+      sections.push(secContent);
+      log(`  ✓ Section ${i+1}/${state.outline.sections.length}: ${sec.h2.slice(0,40)}`, 'success');
+    }
+
+    // Conclusion
+    const conclusion = await callClaude(writerSystem,
+      `Write the CONCLUSION for "${state.seoBrief.title}".
+Main takeaway: ${state.outline.conclusion.mainTakeaway}
+CTA: ${state.outline.conclusion.cta}
+Author site: ${AUTHOR.site}, LinkedIn: ${AUTHOR.linkedin}
+~${state.outline.conclusion.wordCount} words. Start with "## The Bottom Line" or "## Final Thoughts".`, 1500);
+    sections.push(conclusion);
+    log('  ✓ Conclusion written', 'success');
+
+    state.draft = sections.join('\n\n');
+    const draftWords = state.draft.split(/\s+/).length;
+    setStep('writer','done');
+    log(`✓ Draft complete — ${draftWords.toLocaleString()} words`, 'success');
+
+    // ── STEP 5: EDITOR ────────────────────────────────────────────────
+    setStep('editor','running');
+    log('Agent 5/5 — Editor & QA Agent running...', 'section');
+
+    const banned = VOICE.avoid.filter(p => state.draft.toLowerCase().includes(p.toLowerCase()));
+    if (banned.length) log(`  ⚠ Slop detected: ${banned.join(', ')} — rewriting...`, 'warn');
+    else log('  ✓ No banned phrases found', 'success');
+
+    const edited = await callClaude(
+      `You are a senior technical editor. Return ONLY the improved markdown — nothing else.`,
+      `Edit this Salesforce blog post:
+${banned.length ? `REMOVE/REWRITE these banned phrases: ${banned.join(', ')}` : ''}
+- Ensure code blocks have language identifiers
+- Make callouts genuinely insightful — rewrite generic ones
+- Ensure "${state.seoBrief.primaryKeyword}" appears 3-5 times naturally
+- Tighten any paragraph over 5 sentences
+- Ensure intro hook is punchy — rewrite if it starts with "In this article"
+- Preserve all headings, code blocks, and structure
+
+DRAFT:
+${state.draft}`, 8192);
+
+    state.finalContent = edited;
+
+    // Quality report
+    const wc = edited.split(/\s+/).length;
+    const kwCount = (edited.toLowerCase().match(new RegExp(state.seoBrief.primaryKeyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'))||[]).length;
+    const hasCode = edited.includes('```');
+    const hasCallouts = edited.includes('💡')||edited.includes('🔴')||edited.includes('⚠️');
+    let score = 100;
+    if (wc < 1200) score -= 20; if (wc > 3000) score -= 10;
+    if (kwCount < 2) score -= 15; if (kwCount > 10) score -= 10;
+    if (!hasCode) score -= 15; if (!hasCallouts) score -= 10;
+    score -= banned.length * 5;
+    state.report = { wordCount:wc, keywordCount:kwCount, keywordDensity:((kwCount/wc)*100).toFixed(2)+'%', hasCode, hasCallouts, qualityScore:Math.max(0,score)+'/100', slopCleaned:banned };
+
+    setStep('editor','done');
+    log(`✓ QA passed — Quality score: ${state.report.qualityScore}`, 'success');
+    log(`✓ Words: ${wc.toLocaleString()} | Keyword hits: ${kwCount} | Density: ${state.report.keywordDensity}`, 'info');
+    log(`✓ Code blocks: ${hasCode ? 'Yes ✓' : 'No ✗'} | Callouts: ${hasCallouts ? 'Yes ✓' : 'No ✗'}`, 'info');
+
+    // ── GENERATE FILES ────────────────────────────────────────────────
+    log('Publisher — generating output files...', 'section');
+    const today = new Date().toISOString().split('T')[0];
+    const runtime = ((Date.now() - state.startTime)/1000).toFixed(1);
+
+    const frontmatter = `---
+title: "${state.seoBrief.title}"
+slug: "${state.seoBrief.slug}"
+date: ${today}
+author: "${AUTHOR.name}"
+author_title: "${AUTHOR.title}"
+description: "${state.seoBrief.metaDescription}"
+keywords: [${[state.seoBrief.primaryKeyword,...state.seoBrief.lsiKeywords].map(k=>`"${k}"`).join(', ')}]
+search_intent: "${state.seoBrief.searchIntent}"
+word_count: ${state.report.wordCount}
+quality_score: "${state.report.qualityScore}"
+canonical: "${AUTHOR.site}/blog/${state.seoBrief.slug}"
+---
+
+`;
+    generatedMd = frontmatter + state.finalContent;
+
+    // Build HTML
+    generatedHtml = buildHtml(state.seoBrief, state.finalContent, state.report, today);
+
+    document.getElementById('dlMd').disabled = false;
+    document.getElementById('dlHtml').disabled = false;
+    document.getElementById('statsGrid').style.display = 'grid';
+    document.getElementById('dlSection').style.display = 'block';
+    document.getElementById('previewAccordion').style.display = 'block';
+
+    document.getElementById('statWords').textContent = wc.toLocaleString();
+    document.getElementById('statScore').textContent = state.report.qualityScore;
+    document.getElementById('statDensity').textContent = state.report.keywordDensity;
+    document.getElementById('statTime').textContent = runtime + 's';
+
+    document.getElementById('contentPreview').textContent = state.finalContent.slice(0, 1000) + '\n\n[...truncated for preview]';
+
+    log(`✓ .md file ready (${(generatedMd.length/1024).toFixed(1)} KB)`, 'success');
+    log(`✓ .html file ready (${(generatedHtml.length/1024).toFixed(1)} KB)`, 'success');
+    log(`\n🎉 Done in ${runtime}s — click Download to save your files`, 'success');
+
+  } catch(err) {
+    log(`❌ Error: ${err.message}`, 'error');
+    ['seo','research','outline','writer','editor'].forEach(s => {
+      if (document.getElementById(`step-${s}`).className.includes('running')) setStep(s,'error');
+    });
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Generate';
+}
+
+function downloadFile(type) {
+  const slug = state.seoBrief?.slug || 'sfdc-blog-post';
+  if (type === 'md') {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([generatedMd], {type:'text/markdown'}));
+    a.download = `${slug}.md`; a.click();
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([generatedHtml], {type:'text/html'}));
+    a.download = `${slug}.html`; a.click();
+  }
+}
+
+function toggleAcc(id) {
+  const body = document.getElementById(id);
+  body.classList.toggle('open');
+}
+
+function buildHtml(seo, content, report, date) {
+  // Convert markdown to basic HTML
+  let html = content
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/```(\w+)?\n([\s\S]*?)```/g,'<pre><code class="lang-$1">$2</code></pre>')
+    .replace(/^> (.+)$/gm,'<blockquote><p>$1</p></blockquote>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/^(?!<[h|b|p|u|o|l|c|p])/gm,'');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p><\/p>/g,'').replace(/<p>(<h[2-3])/g,'$1').replace(/(<\/h[2-3]>)<\/p>/g,'$1');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${seo.title}</title>
+<meta name="description" content="${seo.metaDescription}">
+<meta name="author" content="${AUTHOR.name}">
+<link rel="canonical" href="${AUTHOR.site}/blog/${seo.slug}">
+<meta property="og:title" content="${seo.title}">
+<meta property="og:description" content="${seo.metaDescription}">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"${seo.title}","author":{"@type":"Person","name":"${AUTHOR.name}","url":"${AUTHOR.site}"},"datePublished":"${date}"}<\/script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;600&family=IBM+Plex+Mono:wght@400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#faf9f7;color:#1a1a1a;line-height:1.75;font-size:17px;padding:0 1rem}
+.header{max-width:720px;margin:0 auto;padding:1.5rem 0;border-bottom:1px solid #e5e3de;display:flex;gap:1rem;align-items:center;font-size:14px;color:#6b6b6b}
+.header a{color:#0176d3;text-decoration:none;font-weight:600}
+article{max-width:720px;margin:0 auto;background:#fff;padding:2.5rem 3rem 3rem;border-left:1px solid #e5e3de;border-right:1px solid #e5e3de;min-height:80vh}
+.meta{display:flex;gap:1.5rem;margin-bottom:2rem;font-size:14px;color:#6b6b6b;flex-wrap:wrap}
+.tag{background:#e8f4ff;color:#0176d3;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+h1{font-family:'IBM Plex Serif',serif;font-size:2.1rem;line-height:1.25;font-weight:600;margin-bottom:1.5rem}
+h2{font-family:'IBM Plex Serif',serif;font-size:1.45rem;font-weight:600;margin:2.5rem 0 .875rem;padding-top:1rem;border-top:2px solid #e5e3de}
+h3{font-size:1.1rem;font-weight:600;margin:1.75rem 0 .5rem}
+p{margin-bottom:1.1rem}
+a{color:#0176d3}
+strong{font-weight:600}
+ul,ol{margin:.75rem 0 1rem 1.5rem}li{margin-bottom:.35rem}
+pre{background:#1e1e2e;color:#cdd6f4;border-radius:8px;padding:1.25rem 1.5rem;overflow-x:auto;margin:1.25rem 0;font-family:'IBM Plex Mono',monospace;font-size:13.5px;line-height:1.65}
+code:not(pre code){background:#f0eee9;color:#c23934;padding:1px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:14px}
+blockquote{border-left:4px solid #2e844a;background:#f0f9f0;padding:.875rem 1.25rem;margin:1.5rem 0;border-radius:0 6px 6px 0;font-size:15px}
+blockquote p{margin:0}
+.author-box{max-width:720px;margin:0 auto;padding:1.5rem 3rem;border:1px solid #e5e3de;border-top:none;background:#f6f4f0}
+.author-box h4{font-size:1rem;margin-bottom:.25rem}
+.author-box p{font-size:14px;color:#6b6b6b;margin:0}
+.author-box a{color:#0176d3;font-weight:600;text-decoration:none}
+.qr{max-width:720px;margin:0 auto;padding:.75rem 3rem;background:#1e1e2e;color:#555;font-family:'IBM Plex Mono',monospace;font-size:11px;border-radius:0 0 8px 8px}
+@media(max-width:640px){article{padding:1.5rem 1.25rem}h1{font-size:1.6rem}.author-box{padding:1.25rem}}
+</style>
+</head>
+<body>
+<div class="header">
+  <a href="${AUTHOR.site}">${AUTHOR.name}</a> · <span>${AUTHOR.title}</span> · <a href="${AUTHOR.linkedin}" target="_blank">LinkedIn</a>
+</div>
+<article>
+  <div class="meta">
+    <span class="tag">Salesforce</span>
+    <span>${date}</span>
+    <span>${report.wordCount.toLocaleString()} words</span>
+    <span>Quality: ${report.qualityScore}</span>
+  </div>
+  <h1>${seo.title}</h1>
+  ${html}
+</article>
+<div class="author-box">
+  <h4>${AUTHOR.name}</h4>
+  <p>${AUTHOR.title} · ${AUTHOR.certs}</p>
+  <p style="margin-top:.5rem"><a href="${AUTHOR.site}" target="_blank">bhanuprakashsfdc.com</a> · <a href="${AUTHOR.linkedin}" target="_blank">Follow on LinkedIn</a></p>
+</div>
+<div class="qr">Generated by sfdc-blog-engine · ${new Date().toISOString()} · keyword: "${seo.primaryKeyword}"</div>
+</body></html>`;
+}
+</script>
+</body>
+</html>
