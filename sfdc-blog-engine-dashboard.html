@@ -323,7 +323,7 @@ async function callClaude(system, user, maxTokens=2000) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${''}`,
+      'Authorization': `Bearer ${'process.env.OPENROUTER_API_KEY'}`,
       'HTTP-Referer': 'https://bhanuprakashsfdc.com',
       'X-Title': 'SFDC Blog Engine'
     },
